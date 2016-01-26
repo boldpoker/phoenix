@@ -83,6 +83,10 @@ defmodule Phoenix.Endpoint.CowboyWebSocket do
     {:ok, req, {handler, state}}
   end
 
+  def websocket_info({:system, from, sys_req}, req, {handler, state}) do
+    {:links, [parent|_]} = :erlang.process_info(self, :links)
+    :sys.handle_system_msg(sys_req, from, parent, __MODULE__, [], {req, handler, state})
+  end
   def websocket_info(message, req, {handler, state}) do
     handle_reply req, handler, handler.ws_info(message, state)
   end
@@ -113,5 +117,20 @@ defmodule Phoenix.Endpoint.CowboyWebSocket do
   end
   defp handle_reply(req, handler, {:reply, {opcode, payload}, new_state}) do
     {:reply, {opcode, payload}, req, {handler, new_state}}
+  end
+
+  def system_continue(_parent, _debug, {req, handler, state}) do
+    {:ok, req, {handler, state}}
+  end
+
+  def system_get_state({_req, _handler, state}), do: {:ok, state}
+
+  def system_replace_state(state_fun, {req, handler, state}) do
+    state = state_fun.(state)
+    {:ok, state, {req, handler, state}}
+  end
+
+  def system_terminate(reason, _parent, _debug, {req, handler, state}) do
+    websocket_terminate(reason, req, {handler, state})
   end
 end
